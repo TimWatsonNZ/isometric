@@ -56,20 +56,22 @@ class Point {
 }
 
 class Tile {
-  constructor(point) {
+  constructor(point, color) {
     this.point = point;
     this.selected = false;
+    this.color = color;
   }
 }
 
-const tilesWidth = 10;
-const tileSize = 40;
-
+const tileNumberX = 10;
+const tileNumberY = 30;
 const tiles = [];
-for (let h = 0; h < tilesWidth; h++) {
+const colors = ['#00FF00', '#0000FF'];
+const randomColor = () => colors[Math.floor(Math.random() * colors.length)];
+for (let h = 0; h < tileNumberY; h++) {
   const tileRow = [];
-  for (let w = 0; w < tilesWidth; w++) {
-    tileRow.push(new Tile(new Point(w * tileSize, h * tileSize)));
+  for (let w = 0; w < tileNumberX; w++) {
+    tileRow.push(new Tile(new Point(w, h), randomColor()));
   }
   tiles.push(tileRow);
 }
@@ -90,38 +92,32 @@ function drawQuad(tile, width, height, ctx, row, col) {
   ctx.fill();
 }
 
-rotate45 = (point) => {
-  return point.rotate(Math.PI/4);
-}
-shift = (point) => {
-  return point.add(diagonal/2, diagonal/2);
-}
-rotateX45 = (point) => point.rotateX(Math.PI/4);
 position = (point, row, column) => {
   const isSecondRow = (row + 1) % 2 == 0;
 
   if (isSecondRow) {
-    return point.add(column * diagonal + diagonal/2, row/2 * diagonal);
+    return point.add(column * tileWidth + tileWidth/2, row/2 * tileHeight);
   }
-  return point.add(column * diagonal, row/2 * diagonal);
+  return point.add(column * tileWidth, row/2 * tileHeight);
 }
 
-const funcs = [rotate45, rotateX45, shift, position];
+const funcs = [position];
 const renderPipe = (point, row, column) => {
   return funcs.reduce((transformedPoint, transform) => transform(transformedPoint, row, column), point);
 }
 
-const diagonal = Math.sqrt(tileSize*tileSize*2);
+const tileWidth = 40;
+const tileHeight = 20;
+
 function draw() {
   for (let row = 0; row < tiles.length; row++) {
     for (let column = 0;column < tiles[row].length; column++) {
-      context.strokeRect(row*diagonal, column*diagonal, diagonal, diagonal)
       const tile = tiles[row][column];
   
-      const p1 = renderPipe(new Point(-tileSize/2, -tileSize/2), row, column);
-      const p2 = renderPipe(new Point(tileSize/2, -tileSize/2), row, column);
-      const p3 = renderPipe(new Point(tileSize/2, tileSize/2), row, column);
-      const p4 = renderPipe(new Point(-tileSize/2, tileSize/2), row, column);
+      const p1 = renderPipe(new Point(tileWidth/2, 0), row, column);
+      const p2 = renderPipe(new Point(tileWidth, tileHeight/2), row, column);
+      const p3 = renderPipe(new Point(tileWidth/2, tileHeight), row, column);
+      const p4 = renderPipe(new Point(0, tileHeight/2), row, column);
   
       context.beginPath();
       context.moveTo(p1.x, p1.y);
@@ -130,31 +126,20 @@ function draw() {
       context.lineTo(p4.x, p4.y);
       context.closePath();
       if (tile.selected) {
-        context.fillStyle = '#FF0000';
-        context.fill();
-        context.fillStyle = '#000000';
+        context.strokeStyle = '#FF0000';
         context.stroke();
+        context.strokeStyle = '#000000';
       } else {
         context.stroke();
       }
+
+      context.fillStyle = tile.color;
+      context.fill();
     }
   }
 }
 
 draw();
-const hyp = Math.sqrt(tileSize*2*tileSize);
-const rotatePoint = (point) => {
-  // const row = 
-  const column = Math.floor(point.x / hyp);
-  const row = Math.floor(point.y / hyp);
-  const normalised = new Point(point.x % hyp, point.y % hyp);
-  const toOrigin = normalised.add(-tileSize / 2, -tileSize / 2);
-  const rotated = toOrigin.rotate(-Math.PI/4);
-  
-  const backAgain = rotated.add(tileSize/2, tileSize/2);
-  console.log(`Column ${column}, Row ${row}`)
-  return backAgain;
-}
 
 canvas.addEventListener('click', (event) => {
   const { layerX, layerY } = event;
@@ -164,21 +149,21 @@ canvas.addEventListener('click', (event) => {
 
   const clickPoint = new Point(layerX, layerY);
 
-  const column = Math.floor(clickPoint.x / hyp);
-  const row = Math.floor(clickPoint.y / hyp);
+  const column = Math.floor(clickPoint.x / tileWidth);
+  const row = Math.floor(clickPoint.y / tileHeight);
 
   const getNeighbours = (x, y) => {
     const norm = { x:x, y: y*2 };
     return [
       { x: norm.x-1, y: norm.y-1}, { x: norm.x, y: norm.y-1},
       { x: norm.x-1, y: norm.y+1},{ x: norm.x, y: norm.y+1}]
-      .filter(pair => pair.x >=0 && pair.y >= 0 && pair.x < tilesWidth && pair.y < tilesWidth);
+      .filter(pair => pair.x >=0 && pair.y >= 0 && pair.x < tileNumberX && pair.y < tileNumberY);
   }
 
   const dist = (p1, p2) => (p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y);
 
   const centreTile = { x: column, y: row*2 };
-  const indexToTileCenter = (p) => ({ x: p.x * diagonal + diagonal/2 + (p.y % 2)*diagonal/2, y: p.y * diagonal/2 + diagonal/2 });
+  const indexToTileCenter = (p) => ({ x: p.x * tileWidth + tileWidth/2 + (p.y % 2)*tileWidth/2, y: p.y * tileHeight/2 + tileHeight/2 });
   
   const neighbours = [centreTile].concat(getNeighbours(column, row))
     .map((p,i) => {
